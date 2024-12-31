@@ -17,7 +17,10 @@ contract OracleUpgradeable is Initializable {
         s_poolFactory = poolFactoryAddress;
     }
 
-    // 
+    // omg we re calling an external contract !
+    // what if the price is manipulated ?
+    // can i manipulate the price ?
+    // check the tests
     function getPriceInWeth(address token) public view returns (uint256) {
         address swapPoolOfToken = IPoolFactory(s_poolFactory).getPool(token);
         return ITSwapPool(swapPoolOfToken).getPriceOfOnePoolTokenInWeth();
