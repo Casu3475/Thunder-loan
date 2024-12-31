@@ -10,7 +10,7 @@ contract AssetToken is ERC20 {
     error AssetToken__ExhangeRateCanOnlyIncrease(uint256 oldExchangeRate, uint256 newExchangeRate);
     error AssetToken__ZeroAddress();
 
-    using SafeERC20 for IERC20;
+    using SafeERC20 for IERC20; // SafeERC20 is a library that extends ERC20 functions to prevent common attack vectors
 
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
@@ -21,6 +21,11 @@ contract AssetToken is ERC20 {
     // The underlying per asset exchange rate
     // ie: s_exchangeRate = 2
     // means 1 asset token is worth 2 underlying tokens
+    // e underlying == USDC
+    // e assetToken == shares
+    // % shares 
+    // e coumpound
+    // e what does this rate do ?
     uint256 private s_exchangeRate;
     uint256 public constant EXCHANGE_RATE_PRECISION = 1e18;
     uint256 private constant STARTING_EXCHANGE_RATE = 1e18;
@@ -33,7 +38,7 @@ contract AssetToken is ERC20 {
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
     //////////////////////////////////////////////////////////////*/
-    modifier onlyThunderLoan() {
+    modifier onlyThunderLoan() { // this means 
         if (msg.sender != i_thunderLoan) {
             revert AssetToken__onlyThunderLoan();
         }
@@ -52,7 +57,9 @@ contract AssetToken is ERC20 {
     //////////////////////////////////////////////////////////////*/
     constructor(
         address thunderLoan,
-        IERC20 underlying,
+        IERC20 underlying, // e the token being deposited for flash loans
+        // is it the ERC20 stored in AssetToken.sol instead of ThunderLoan ?
+        // q where are the tokens stored ?
         string memory assetName,
         string memory assetSymbol
     )
@@ -65,6 +72,7 @@ contract AssetToken is ERC20 {
         s_exchangeRate = STARTING_EXCHANGE_RATE;
     }
 
+    // e only the thunderloan conrat can mint asset tokens 
     function mint(address to, uint256 amount) external onlyThunderLoan {
         _mint(to, amount);
     }
@@ -74,6 +82,9 @@ contract AssetToken is ERC20 {
     }
 
     function transferUnderlyingTo(address to, uint256 amount) external onlyThunderLoan {
+        // weird ERC20s ???
+        // q what happens if USDC blacklists the thunderloan contract ?
+        // q what happens if USDC blacklists the asset token contract ?
         i_underlying.safeTransfer(to, amount);
     }
 
