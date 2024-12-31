@@ -2,7 +2,5 @@
 pragma solidity 0.8.20;
 
 interface IPoolFactory {
-    function getPool(address tokenAddress) external view returns (address); // PROBABLY THE INTERFACE TO WORK WITH POOLFACTORY.SOL FROM TSWAP
+    function getPool(address tokenAddress) external view returns (address);
 }
-
-// WHY ARE WE USING TSWAP ? 

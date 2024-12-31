@@ -72,6 +72,7 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { OracleUpgradeable } from "../protocol/OracleUpgradeable.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
+import { IFlashLoanReceiver } from "../interfaces/IFlashLoanReceiver.sol";
 
 contract ThunderLoanUpgraded is Initializable, OwnableUpgradeable, UUPSUpgradeable, OracleUpgradeable {
     error ThunderLoan__NotAllowedToken(IERC20 token);
@@ -137,7 +138,7 @@ contract ThunderLoanUpgraded is Initializable, OwnableUpgradeable, UUPSUpgradeab
                            EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     function initialize(address tswapAddress) external initializer {
-        __Ownable_init();
+        __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
         __Oracle_init(tswapAddress);
         s_flashLoanFee = 3e15; // 0.3% ETH fee
@@ -149,7 +150,8 @@ contract ThunderLoanUpgraded is Initializable, OwnableUpgradeable, UUPSUpgradeab
         uint256 mintAmount = (amount * assetToken.EXCHANGE_RATE_PRECISION()) / exchangeRate;
         emit Deposit(msg.sender, token, amount);
         assetToken.mint(msg.sender, mintAmount);
-
+        uint256 calculatedFee = getCalculatedFee(token, amount);
+        assetToken.updateExchangeRate(calculatedFee);
         token.safeTransferFrom(msg.sender, address(assetToken), amount);
     }
 
@@ -175,7 +177,16 @@ contract ThunderLoanUpgraded is Initializable, OwnableUpgradeable, UUPSUpgradeab
         assetToken.transferUnderlyingTo(msg.sender, amountUnderlying);
     }
 
-    function flashloan(address receiverAddress, IERC20 token, uint256 amount, bytes calldata params) external {
+    function flashloan(
+        address receiverAddress,
+        IERC20 token,
+        uint256 amount,
+        bytes calldata params
+    )
+        external
+        revertIfZero(amount)
+        revertIfNotAllowedToken(token)
+    {
         AssetToken assetToken = s_tokenToAssetToken[token];
         uint256 startingBalance = IERC20(token).balanceOf(address(assetToken));
 
@@ -183,7 +194,7 @@ contract ThunderLoanUpgraded is Initializable, OwnableUpgradeable, UUPSUpgradeab
             revert ThunderLoan__NotEnoughTokenBalance(startingBalance, amount);
         }
 
-        if (!receiverAddress.isContract()) {
+        if (receiverAddress.code.length == 0) {
             revert ThunderLoan__CallerIsNotContract();
         }
 
@@ -197,13 +208,15 @@ contract ThunderLoanUpgraded is Initializable, OwnableUpgradeable, UUPSUpgradeab
         assetToken.transferUnderlyingTo(receiverAddress, amount);
         // slither-disable-next-line unused-return reentrancy-vulnerabilities-2
         receiverAddress.functionCall(
-            abi.encodeWithSignature(
-                "executeOperation(address,uint256,uint256,address,bytes)",
-                address(token),
-                amount,
-                fee,
-                msg.sender,
-                params
+            abi.encodeCall(
+                IFlashLoanReceiver.executeOperation,
+                (
+                    address(token),
+                    amount,
+                    fee,
+                    msg.sender, // initiator
+                    params
+                )
             )
         );
 
@@ -218,7 +231,7 @@ contract ThunderLoanUpgraded is Initializable, OwnableUpgradeable, UUPSUpgradeab
         if (!s_currentlyFlashLoaning[token]) {
             revert ThunderLoan__NotCurrentlyFlashLoaning();
         }
-        AssetToken assetToken = s_tokenToAssetToken[IERC20(token)];
+        AssetToken assetToken = s_tokenToAssetToken[token];
         token.safeTransferFrom(msg.sender, address(assetToken), amount);
     }
 

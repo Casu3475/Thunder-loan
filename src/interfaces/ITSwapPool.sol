@@ -2,6 +2,5 @@
 pragma solidity 0.8.20;
 
 interface ITSwapPool {
-    function getPriceOfOnePoolTokenInWeth() external view returns (uint256); 
-    // WHY ARE WE USING THE PRICE OF A POOL TOKEN IN WETH ?
+    function getPriceOfOnePoolTokenInWeth() external view returns (uint256);
 }
